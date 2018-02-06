@@ -13,7 +13,7 @@ import math
 from rpn_msr.generate import imdb_proposals_det
 import tensorflow as tf
 from fast_rcnn.bbox_transform import clip_boxes, bbox_transform_inv
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from tensorflow.python.client import timeline
 import time
 
@@ -321,7 +321,8 @@ def test_net(sess, net, imdb, weights_filename , max_per_image=300, thresh=0.05,
                 vis_detections(image, imdb.classes[j], cls_dets)
             all_boxes[j][i] = cls_dets
         if vis:
-           plt.show()
+            pass
+           #plt.show()
         # Limit to max_per_image detections *over all classes*
         if max_per_image > 0:
             image_scores = np.hstack([all_boxes[j][i][:, -1]
