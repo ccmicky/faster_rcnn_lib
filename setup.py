@@ -7,22 +7,20 @@
 
 import os
 from os.path import join as pjoin
-# from distutils.core import setup
-# from distutils.extension import Extension
 import numpy as np
+#from distutils.core import setup
+#from distutils.extension import Extension
 from Cython.Distutils import build_ext
-from setuptools import setup, find_packages, Extension
-
+from setuptools import setup, find_packages,Extension
 
 def find_in_path(name, path):
     "Find a file in a search path"
-    # adapted fom http://code.activestate.com/recipes/52224-find-a-file-given-a-search-path/
+    #adapted fom http://code.activestate.com/recipes/52224-find-a-file-given-a-search-path/
     for dir in path.split(os.pathsep):
         binpath = pjoin(dir, name)
         if os.path.exists(binpath):
             return os.path.abspath(binpath)
     return None
-
 
 def locate_cuda():
     """Locate the CUDA environment on the system
@@ -41,13 +39,12 @@ def locate_cuda():
     else:
         # otherwise, search the PATH for NVCC
         default_path = pjoin(os.sep, 'usr', 'local', 'cuda', 'bin')
-        nvcc = find_in_path('nvcc',
-                            os.environ['PATH'] + os.pathsep + default_path)
+        nvcc = find_in_path('nvcc', os.environ['PATH'] + os.pathsep + default_path)
         if nvcc is None:
-            return None;
+          return None;
         home = os.path.dirname(os.path.dirname(nvcc))
 
-    cudaconfig = {'home': home, 'nvcc': nvcc,
+    cudaconfig = {'home':home, 'nvcc':nvcc,
                   'include': pjoin(home, 'include'),
                   'lib64': pjoin(home, 'lib64')}
     for k, v in cudaconfig.iteritems():
@@ -56,13 +53,13 @@ def locate_cuda():
 
     return cudaconfig
 
+CUDA = None
 
 # Obtain the numpy include directory.  This logic works across numpy versions.
 try:
     numpy_include = np.get_include()
 except AttributeError:
     numpy_include = np.get_numpy_include()
-
 
 def customize_compiler_for_nvcc(self):
     """inject deep into distutils to customize how the dispatch
@@ -86,7 +83,14 @@ def customize_compiler_for_nvcc(self):
     # based on source extension: we add it.
     def _compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
         print extra_postargs
-        postargs = extra_postargs['gcc']
+        if os.path.splitext(src)[1] == '.cu':
+            # use the cuda for .cu files
+            self.set_executable('compiler_so', CUDA['nvcc'])
+            # use only a subset of the extra_postargs, which are 1-1 translated
+            # from the extra_compile_args in the Extension class
+            postargs = extra_postargs['nvcc']
+        else:
+            postargs = extra_postargs['gcc']
 
         super(obj, src, ext, cc_args, postargs, pp_opts)
         # reset the default compiler_so, which we might have changed for cuda
@@ -96,55 +100,65 @@ def customize_compiler_for_nvcc(self):
     self._compile = _compile
 
 
+# run the customize_compiler
 class custom_build_ext(build_ext):
     def build_extensions(self):
         customize_compiler_for_nvcc(self.compiler)
         build_ext.build_extensions(self)
 
-
-def setup_package():
-    ext_modules = [
-        Extension(
-            "utils.cython_bbox",
-            ["utils/bbox.pyx"],
-            extra_compile_args={'gcc': ["-Wno-cpp", "-Wno-unused-function"]},
-            include_dirs=[numpy_include]
-        ),
-        Extension(
-            "utils.cython_nms",
-            ["utils/nms.pyx"],
-            extra_compile_args={'gcc': ["-Wno-cpp", "-Wno-unused-function"]},
-            include_dirs=[numpy_include]
-        ),
-        Extension(
-            "nms.cpu_nms",
-            ["nms/cpu_nms.pyx"],
-            extra_compile_args={'gcc': ["-Wno-cpp", "-Wno-unused-function"]},
-            include_dirs=[numpy_include]
-        )
-    ]
-    # os.system("rm -rf build")
-    # os.system("bash make.sh")
-    PACKAGES = find_packages()
-    setup(
-        name='faster_rcnn',
-        install_requires=[
-            'Cython>=0.27.3,<0.27.4',
-            'numpy>=1.13.3,<1.13.4',
-            'tensorflow>=1.4.1,<1.4.2'
-        ],
-        ext_modules=ext_modules,
-        # inject our custom trigger
-        cmdclass={'build_ext': custom_build_ext},
-        packages=PACKAGES,
-        include_package_data=True,
-        package_data={'utils': ['cython_nms.so', 'cython_bbox.so'],
-                      'roi_pooling_layer': ['roi_pooling.so'],
-                      'nms': ['cpu_nms.so', 'gpu_nms.so']},
-        # package_data={'roi_pooling_layer': ['roi_pooling.so']},
+ext_modules = [
+    Extension(
+        "utils.cython_bbox",
+        ["utils/bbox.pyx"],
+        extra_compile_args={'gcc': ["-Wno-cpp", "-Wno-unused-function"]},
+	include_dirs = [numpy_include]
+	),
+    Extension(
+        "utils.cython_nms",
+        ["utils/nms.pyx"],
+        extra_compile_args={'gcc': ["-Wno-cpp", "-Wno-unused-function"]},
+        include_dirs = [numpy_include]
+    ),
+    Extension(
+        "nms.cpu_nms",
+        ["nms/cpu_nms.pyx"],
+        extra_compile_args={'gcc': ["-Wno-cpp", "-Wno-unused-function"]},
+        include_dirs = [numpy_include]
     )
-    #os.system("rm -rf build")
+]
 
+if CUDA:
+    ext_modules.append(
+        Extension('nms.gpu_nms',
+            ['nms/nms_kernel.cu', 'nms/gpu_nms.pyx'],
+            library_dirs=[CUDA['lib64']],
+            libraries=['cudart'],
+            language='c++',
+            runtime_library_dirs=[CUDA['lib64']],
+            # this syntax is specific to this build system
+            # we're only going to use certain compiler args with nvcc and not with gcc
+            # the implementation of this trick is in customize_compiler() below
+            extra_compile_args={'gcc': ["-Wno-unused-function"],
+                                'nvcc': ['-arch=sm_35',
+                                         '--ptxas-options=-v',
+                                         '-c',
+                                         '--compiler-options',
+                                         "'-fPIC'"]},
+            include_dirs = [numpy_include, CUDA['include']]
+        )
+    )
 
-if __name__ == '__main__':
-    setup_package()
+#os.system("rm -rf build")
+os.system("bash make.sh")
+PACKAGES=find_packages()
+setup(
+    name='faster_rcnn',
+    ext_modules=ext_modules,
+    # inject our custom trigger
+    cmdclass={'build_ext': custom_build_ext},
+    packages=PACKAGES,
+    include_package_data = True,
+    package_data={'utils': ['cython_nms.so', 'cython_bbox.so'], 'roi_pooling_layer': ['roi_pooling.so'], 'nms': ['cpu_nms.so', 'gpu_nms.so']},
+    #package_data={'roi_pooling_layer': ['roi_pooling.so']},
+)
+os.system("rm -rf build")
