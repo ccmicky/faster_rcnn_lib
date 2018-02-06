@@ -145,7 +145,7 @@ def setup_package():
                       'nms': ['cpu_nms.so', 'gpu_nms.so']},
         # package_data={'roi_pooling_layer': ['roi_pooling.so']},
     )
-    os.system("rm -rf build")
+    #os.system("rm -rf build")
 
 
 if __name__ == '__main__':
