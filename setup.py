@@ -57,13 +57,10 @@ def locate_cuda():
 
 
 # Obtain the numpy include directory.  This logic works across numpy versions.
-def get_numpy_include_dir():
-    try:
-        import numpy as np
-        numpy_include = np.get_include()
-    except ImportError:
-        numpy_include = ""
-    return numpy_include
+try:
+    numpy_include = np.get_include()
+except AttributeError:
+    numpy_include = np.get_numpy_include()
 
 
 def customize_compiler_for_nvcc(self):
@@ -110,19 +107,19 @@ def setup_package():
             "utils.cython_bbox",
             ["utils/bbox.pyx"],
             extra_compile_args={'gcc': ["-Wno-cpp", "-Wno-unused-function"]},
-            include_dirs=[get_numpy_include_dir()]
+            include_dirs=[numpy_include]
         ),
         Extension(
             "utils.cython_nms",
             ["utils/nms.pyx"],
             extra_compile_args={'gcc': ["-Wno-cpp", "-Wno-unused-function"]},
-            include_dirs=[get_numpy_include_dir()]
+            include_dirs=[numpy_include]
         ),
         Extension(
             "nms.cpu_nms",
             ["nms/cpu_nms.pyx"],
             extra_compile_args={'gcc': ["-Wno-cpp", "-Wno-unused-function"]},
-            include_dirs=[get_numpy_include_dir()]
+            include_dirs=[numpy_include]
         )
     ]
     # os.system("rm -rf build")
