@@ -12,6 +12,8 @@ import numpy as np
 #from distutils.extension import Extension
 from Cython.Distutils import build_ext
 from setuptools import setup, find_packages,Extension
+from setuptools.config import read_configuration
+read_configuration('setup.cfg')
 
 def find_in_path(name, path):
     "Find a file in a search path"
