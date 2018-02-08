@@ -13,7 +13,7 @@ import numpy as np
 from Cython.Distutils import build_ext
 from setuptools import setup, find_packages,Extension
 from setuptools.config import read_configuration
-read_configuration('setup.cfg')
+c = read_configuration('setup.cfg')
 
 def find_in_path(name, path):
     "Find a file in a search path"
@@ -159,8 +159,8 @@ setup(
     # inject our custom trigger
     cmdclass={'build_ext': custom_build_ext},
     packages=PACKAGES,
-    include_package_data = True,
+    include_package_data=True,
     package_data={'utils': ['cython_nms.so', 'cython_bbox.so'], 'roi_pooling_layer': ['roi_pooling.so'], 'nms': ['cpu_nms.so', 'gpu_nms.so']},
     #package_data={'roi_pooling_layer': ['roi_pooling.so']},
 )
-os.system("rm -rf build")
+#os.system("rm -rf build")
