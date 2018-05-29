@@ -173,7 +173,11 @@ def im_detect(sess, net, im, boxes=None):
         run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
         run_metadata = tf.RunMetadata()
 
-    cls_score, cls_prob, bbox_pred, rois = sess.run([net.get_output('cls_score'), net.get_output('cls_prob'), net.get_output('bbox_pred'),net.get_output('rois')],
+    cls_score, cls_prob, bbox_pred, rois, fc7s =  sess.run([net.get_output('cls_score'),
+                                                     net.get_output('cls_prob'),
+                                                     net.get_output('bbox_pred'),
+                                                     net.get_output('rois'),
+                                                     net.get_output('fc7')],
                                                     feed_dict=feed_dict,
                                                     options=run_options,
                                                     run_metadata=run_metadata)
@@ -211,7 +215,7 @@ def im_detect(sess, net, im, boxes=None):
         trace_file.write(trace.generate_chrome_trace_format(show_memory=False))
         trace_file.close()
 
-    return scores, pred_boxes
+    return scores, pred_boxes, fc7s
 
 
 def vis_detections(im, class_name, dets, thresh=0.8):
